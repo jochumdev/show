@@ -32,8 +32,10 @@ Nushell does **not** need to be your active shell for `show` to work — though 
 
 ## Demos
 
-- [show as a fzf previewer](demos/2025-12-14-show.mp4)
-- [show search in action](demos/2025-12-14-search.mp4)
+[2025-12-14-fzf-show.webm](https://github.com/user-attachments/assets/47737768-43dc-4328-84cd-ff2a8284ccc7)
+
+[2025-12-14-search.webm](https://github.com/user-attachments/assets/b7ba1869-4240-42ef-9119-1a7de14678c3)
+
 
 ---
 
