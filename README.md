@@ -23,8 +23,8 @@ It can:
 `show` is well tested with:
 
 - **kitty**
-- **alacritty**
-- **ghostty**
+- **alacrity**
+- **ghosty**
 
 Nushell does **not** need to be your active shell for `show` to work — though I highly recommend trying it.
 
