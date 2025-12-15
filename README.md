@@ -32,10 +32,9 @@ Nushell does **not** need to be your active shell for `show` to work — though 
 
 ## Demos
 
+[![2025-12-15 show search](https://asciinema.org/a/rJq1jzwOrKx6gnB19cUZnH0WL.svg)](https://asciinema.org/a/rJq1jzwOrKx6gnB19cUZnH0WL)
+
 [2025-12-14-fzf-show.webm](https://github.com/user-attachments/assets/47737768-43dc-4328-84cd-ff2a8284ccc7)
-
-[2025-12-14-search.webm](https://github.com/user-attachments/assets/b7ba1869-4240-42ef-9119-1a7de14678c3)
-
 
 ---
 
@@ -85,8 +84,8 @@ http get --raw https://raw.githubusercontent.com/kurokirasama/nushell_sublime_sy
 You can configure `show` as the preview command for fzf:
 
 ```nushell
-$env.FZF_DEFAULT_OPTS = '--preview="show --jump-to-line {2} {1}"'
-$env.FZF_CTRL_T_OPTS = '--preview="show --jump-to-line {2} {1}"'
+$env.FZF_DEFAULT_OPTS = r#'--preview="show -j ' {2} ' {1}" --delimiter=":"'#
+$env.FZF_CTRL_T_OPTS = r#'--preview="show -j ' {2} ' {1}"'#
 ```
 
 I’m also using this fzf PR for better completions:
