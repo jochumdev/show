@@ -34,7 +34,7 @@ Nushell does **not** need to be your active shell for `show` to work — though 
 
 [![2025-12-15-show-search](https://asciinema.org/a/762163.svg)](https://asciinema.org/a/762163)
 
-[2025-12-14-fzf-show.webm](https://github.com/user-attachments/assets/47737768-43dc-4328-84cd-ff2a8284ccc7)
+[2025-12-15-show-as-fzf-preview.webm](https://github.com/user-attachments/assets/5bc0018d-03d8-4532-9281-0ec335381ee2)
 
 ---
 
