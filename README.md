@@ -94,14 +94,12 @@ I’m also using this fzf PR for better completions:
 
 ## `show` — terminal viewer for text and images
 
-```
 Renders files or directories in the terminal.
 
 - Text files are highlighted using bat (or cat as fallback)
 - Images are rendered inline when supported
 - Binary files are shown as their path
 - Directories are searched for "known" files
-```
 
 ### Behavior
 
@@ -150,14 +148,11 @@ show {flags} <path>
 
 ---
 
-### Dependencies
-
-* [Nushell](https://www.nushell.sh/book/installation.html)
-  (does not need to be your login shell)
+# Dependencies
 
 #### Image rendering (optional, resolved in order)
 
-* kitty / ghostty: `kitten` + `sed`
+* kitty / ghosty: `kitten` + `sed`
 * otherwise: `imgcat`
 * fallback: `chafa`
 
@@ -173,9 +168,7 @@ If nothing is available, `ls` is used as a last resort.
 
 ## `show search` — ripgrep + fzf integration
 
-```
-Search with rg <> fzf | open
-```
+Search with rg <> fzf then open the found files in your editor.
 
 ### Examples
 
