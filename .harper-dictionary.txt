@@ -1,0 +1,7 @@
+Jochum
+Nushell
+René
+fzf
+ghosty
+junegunn
+ripgrep

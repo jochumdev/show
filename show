@@ -387,3 +387,10 @@ def "main search" [
     do $m_opener ...$files
   }
 }
+
+# Self update show
+def "main update" [] {
+  print "Downloading"
+  http get --raw https://git.sr.ht/~jochumdev/show/blob/HEAD/show | save --raw --force ($env.CURRENT_FILE)
+  print "All done"
+}
