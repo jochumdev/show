@@ -178,12 +178,6 @@ def get-config [
 
       let usercfg = (open --raw $cp | from toml)
       return ($defaults | merge deep $usercfg --strategy=prepend)
-    } else if ($"($env.XDG_CONFIG_HOME?)/show/config.json" | path exists) {
-      let cp = $"($env.XDG_CONFIG_HOME?)/show/config.json"
-      log debug $"Found config '($cp)', loading it"
-
-      let usercfg = (open --raw $cp | from json)
-      return ($defaults | merge deep $usercfg --strategy=prepend)
     }
   }
   
