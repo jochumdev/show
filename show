@@ -1,129 +1,296 @@
-#!/usr/bin/env -S nu
+#!/usr/bin/env nu
 #
 # SPDX-FileCopyrightText: 2025-present jochumdev <rene@jochum.dev>
 #
 # SPDX-License-Identifier: MIT OR Apache-2.0
-#
-# This file is based on: https://github.com/junegunn/fzf/blob/33d8d51c8a6c6e9321b5295b3a63f548b5f18a1f/bin/fzf-preview.sh
 
 use std/log
 
-def --env configure [] {
-  let term_size = (term size)
-  load-env {
-    # Terms to use with the image viewer `kitten`
-    SHOW_KITTEN_TERMS: (
-      $env.SHOW_KITTEN_TERMS? | default (
-        [
+
+let renderers = {
+  "kitten_icat": {
+    "required_cmds": ["kitten" "sed"]
+    "check_terminals": true
+    "formatter": {|config, term, jump_to|
+      let term_size = (term size)
+      let c = ($env.FZF_PREVIEW_COLUMNS? | default $term_size.columns | into int)
+      let l = ($env.FZF_PREVIEW_LINES? | default $term_size.rows | into int)
+
+      # This comment is from `fzf-preview.sh`
+      # 1. 'memory' is the fastest option but if you want the image to be scrollable,
+      #    you have to use 'stream'.
+      #
+      # 2. The last line of the output is the ANSI reset code without newline.
+      #    This confuses fzf and makes it render scroll offset indicator.
+      #    So we remove the last line and append the reset code to its previous line.
+      let dim = $"($c)x($l)"
+      kitten icat --clear --transfer-mode=memory --unicode-placeholder --stdin=no --place=$"($dim)@0x0" $in | sed '$d'
+    }
+  }
+  "imgcat": {
+    "required_cmds": ["imgcat"]
+    "formatter": {|config, term, jump_to|
+      let term_size = (term size)
+      let c = ($env.FZF_PREVIEW_COLUMNS? | default $term_size.columns | into int)
+      let l = ($env.FZF_PREVIEW_LINES? | default $term_size.rows | into int)
+    
+      # TODO(jochumdev): this iscomplelty untested.
+      #
+      # This comment is from `fzf-preview.sh`
+      # NOTE: We should use https://iterm2.com/utilities/it2check to check if the
+      # user is running iTerm2. But for the sake of simplicity, we just assume
+      # that's the case here.
+      imgcat -W $c -H $l $in
+    }
+  }
+  "chafa": {
+    "required_cmds": ["chafa"]
+    "formatter": {|config, term, jump_to|
+      let term_size = (term size)
+      let c = ($env.FZF_PREVIEW_COLUMNS? | default $term_size.columns | into int)
+      let l = ($env.FZF_PREVIEW_LINES? | default $term_size.rows | into int)
+
+      let dim = (
+        if (($env.FZF_PREVIEW_TOP? | default 0 | into int) + $l == $term_size.columns) {
+          # Avoid scrolling issue when the Sixel image touches the bottom of the screen
+          # * https://github.com/junegunn/fzf/issues/2544
+          $"($c)x(($l - 1))"
+        } else {
+          $"($c)x($l)"
+        }
+      )
+
+      chafa -s $dim $in
+    }
+  }
+  "sed": {
+    "required_cmds": ["sed"]
+    "formatter": {|config, term, jump_to|
+      if ($jump_to != 0) {
+        let pstart = [($jump_to - 10) 1] | math max
+        let pend = $pstart + $env.FZF_PREVIEW_LINES
+        sed --quiet $"($pstart),($pend)p" $in
+      } else {
+        sed --quiet "1,200p" $in
+      }
+    }
+  }
+  "bat": {
+    "required_cmds": ["bat", "less"]
+    "formatter": {|config, term, jump_to|
+      let $file = $in
+
+      let term_size = (term size)
+      let l = ($env.FZF_PREVIEW_LINES? | default $term_size.rows | into int)
+
+      let pstart = [($jump_to - 10) 1] | math max
+      if ($env.FZF_LINES? | default "") != "" {
+        let pend = $pstart + $l
+        log debug $"Running bat in fzf mode, line-range: '($pstart):($pend)'"
+        bat --style $"($config.renderers.bat.fzf_style)" --color $"($config.renderers.bat.fzf_color)" --pager "never" --line-range $"($pstart):($pend)" --highlight-line $jump_to -- $file
+      } else {
+        let pager = $'less +G($pstart) -RF'
+        log debug $"Running bat in Less mode, pager: '($pager)'"
+        bat --pager $pager --highlight-line $jump_to -- $file
+      }
+    }
+  }
+  "cat": {
+    "required_cmds": ["cat"]
+    "formatter": {|config, term, jump_to|
+      cat $in
+    }
+  }
+  "nu-highlight": {
+    "required_cmds": ["nu-highlight"]
+    "formatter": {|config, term, jump_to|
+      open --raw $in | nu-highlight | print
+    }
+  }
+}
+
+# The show config.
+# 
+# with this first /usr/bin/file tells me this text/plain
+# when here its text/x-script.python ...
+def get-config [
+]: nothing -> record {
+  let defaults = {
+    # Per command config/defaults
+    "commands": {
+      "main": {
+        # glob patterns (help glob) to search for, first match wins.
+        "patterns": [
+          "(?i)readme*"
+          "(?i)*.md"
+          "(?i)*.rst"
+          "(?i)*.toml"
+        ]
+        # Excludes for all the patterns above.
+        "excludes": [
+          "**/target/**"
+          "**/.git/**"
+        ]
+      }
+      "search": {
+        "opener": "nvim"
+        "line_openers": [
+          "helix"
+        ]
+      }
+    }
+    # Mime to formatter map. The order matters!
+    "mimegroups": [
+      {
+        "mimes": ["application/x-nuscript", "application/x-nuon", "text/x-nushell", "application/json"]
+        "renderers": ["nu-highlight", "bat", "cat"]
+      }
+      {
+        "mimes": ["application", "text"]
+        "renderers": ["bat", "sed", "cat"]
+      }
+      {
+        "mimes": ["image"]
+        "renderers": ["kitten_icat", "imgcat", "chafa", "sed"]
+      }
+    ]
+    "renderers": {
+      "kitten_icat": {
+        # Runs only in these terminals
+        "terms": [
           "kitty"
           "ghostty"
         ]
-      )
-    )
-
-    # For bat, these are only used in "fzf" mode.
-    FZF_BAT_STYLE: ($env.FZF_BAT_STYLE? | default "full")
-    FZF_BAT_COLOR: ($env.FZF_BAT_COLOR? | default "always")
-
-    # for FZF
-    FZF_PREVIEW_TOP: ($env.FZF_PREVIEW_TOP? | default 0 | into int)
-    FZF_PREVIEW_COLUMNS: ($env.FZF_PREVIEW_COLUMNS? | default $term_size.columns | into int)
-    FZF_PREVIEW_LINES: ($env.FZF_PREVIEW_LINES? | default $term_size.rows | into int)
+      }
+      "bat": {
+        # Only in fzf mode applied.
+        "fzf_style": "full" # man bat -> "--style"
+        "fzf_color": "always" # man bat -> "--color"
+      }
+    }
   }
+
+  if not ($env.XDG_CONFIG_HOME? | is-empty) {
+  if ($"($env.XDG_CONFIG_HOME?)/show/config.toml" | path exists) {
+      let cp = $"($env.XDG_CONFIG_HOME?)/show/config.toml"
+      log debug $"Found config '($cp)', loading it"
+
+      let usercfg = (open --raw $cp | from toml)
+      return ($defaults | merge deep $usercfg --strategy=prepend)
+    } else if ($"($env.XDG_CONFIG_HOME?)/show/config.json" | path exists) {
+      let cp = $"($env.XDG_CONFIG_HOME?)/show/config.json"
+      log debug $"Found config '($cp)', loading it"
+
+      let usercfg = (open --raw $cp | from json)
+      return ($defaults | merge deep $usercfg --strategy=prepend)
+    }
+  }
+  
+  return $defaults
+}
+
+
+# Check if all cmds (external or internal) are available.
+# returns true if so else false
+def check-cmds [
+]: list<string> -> bool {
+  return ($in | each {|cmd|
+    which $cmd | is-not-empty
+  } | reduce --fold true {|it, res|
+    $it == true and $res == true
+  })
 }
 
 def fallback-ls [
   reason: string = "unknown"
 ]: path -> any {
-  print --stderr $"WARN: In fallback-ls, reason: ($reason)"
-  ^ls ($in | path expand)
+  print --stderr $"WARNING: In fallback-ls, reason: ($reason)"
+  ls ($in | path expand)
 }
 
-def show-image [
-]: path -> bool {
+
+def run-renderers [
+  wanted: list<string>
+  config: record
+  term: string
+  jump_to_line: int
+]: path -> binary {
   let file = $in
 
-  # load env
-  configure
+  # Get renderers we known about, silently ignore others.
+  let matched = $wanted | where {|x| $x in $renderers}
+
+  for x in $matched {
+    let $fmt = $renderers | get $x
+    let $fmt_cfg = $config.renderers | get -o $x | default {}
+
+    # Check terminals if needed.
+    if ($fmt.check_terminals? | default false) {
+      let terms = $fmt_cfg | get -o "terms"
+      if ($terms | is-empty) {
+        log warning $"Skipping '($x)', found an invalid config, the renderers is configured to check terminals and the config doesnt have any"
+        continue
+      }
+
+      if not ($term in $terms) {
+        log debug $"Skipping '($x)', isnt compatible with term '($term)', it is compatible with '($terms | str join ' ')'"
+        continue
+      }
+    }
+
+    # Check required cmds
+    if not ($fmt.required_cmds | check-cmds) {
+      log debug $"Skipping '($x)', not all required cmds are available, cmds '($fmt.required_cmds | str join ' ')'"
+      continue
+    }
+
+    log debug $"Running formatter '($x)'"
+    $file | do -c $fmt.formatter $config $term $jump_to_line
+    break
+  }
+
+  return null
+}
+
+def show-file [
+  config: record
+  jump_to_line: int
+]: path -> binary {
+  let file = ($in | path expand)
 
   mut term = ($env.TERM? | default "unknown")
   if ($env.KITTY_WINDOW_ID? | is-not-empty) {
     $term = "kitty"
   }
 
-  # 1. Use icat (from Kitty) if kitten is installed and kitty is the active terminal.
-  if (($term in $env.SHOW_KITTEN_TERMS) and (which "kitten" | is-not-empty) and (which "sed" | is-not-empty)) {
-    # 1. 'memory' is the fastest option but if you want the image to be scrollable,
-    #    you have to use 'stream'.
-    #
-    # 2. The last line of the output is the ANSI reset code without newline.
-    #    This confuses fzf and makes it render scroll offset indicator.
-    #    So we remove the last line and append the reset code to its previous line.
-    log debug "Using `kitten icat`"
-    let dim = $"($env.FZF_PREVIEW_COLUMNS)x($env.FZF_PREVIEW_LINES)"
-    ^kitten icat --clear --transfer-mode=memory --unicode-placeholder --stdin=no --place=$"($dim)@0x0" $file | ^sed '$d'
+  # Using `file` to get the mime if available its resolution is better.
+  let mime = (if (["file"] | check-cmds) {
+    (file --brief --dereference --mime -- $file | split row ';' | first)
+  } else {
+    ls -m $file | get type
+  })
 
-    # 2. Use imgcat
-    # TODO(jochumdev): this is untested.
-  } else if (which "imgcat" | is-not-empty) {
-    # NOTE: We should use https://iterm2.com/utilities/it2check to check if the
-    # user is running iTerm2. But for the sake of simplicity, we just assume
-    # that's the case here.
-    log debug "Using `imgcat`"
-    ^imgcat -W $env.FZF_PREVIEW_COLUMNS -H $env.FZF_PREVIEW_LINES $file
+  log debug $"Detected mime '($mime)' and term '($term)'"
 
-    # 3. Use chafa with Sixel output
-  } else if (which "chafa" | is-not-empty) {
-    log debug "Using `chafa`"
-    let dim = (
-      if ($env.FZF_PREVIEW_TOP + $env.FZF_PREVIEW_LINES == (term size).columns) {
-        # Avoid scrolling issue when the Sixel image touches the bottom of the screen
-        # * https://github.com/junegunn/fzf/issues/2544
-        $"($env.FZF_PREVIEW_COLUMNS)x(($env.FZF_PREVIEW_LINES - 1))"
-      } else {
-        $"($env.FZF_PREVIEW_COLUMNS)x($env.FZF_PREVIEW_LINES)"
-      }
-    )
+  let type = $mime | split row '/' | first
 
-    ^chafa -s $dim $file
+  let flattened_mimes = ($config.mimegroups
+    | reduce -f {} {|it acc|
+        $it.mimes
+        | reduce -f $acc {|m acc2|
+            $acc2 | upsert $m $it.renderers
+          }
+    }
+  )
+
+  # Try direct match, then type match, else fail
+  let renderers = $flattened_mimes | get -o $mime | default ($flattened_mimes | get -o $type | default null)
+
+  if ($renderers == null) {
+    error make {msg: "Unknown mime", labels: {text: $"Mime '($mime)' is unknown for file '($file)'", span: (metadata $mime).span}}
   }
-}
 
-def show-file [
-  --jump-to-line: int = 0
-]: string -> any {
-  let file = ($in | path expand)
-
-  # load env
-  configure
-
-  match (ls -m $file | get type | split row "/" | first) {
-    "image" => {
-      $file | show-image
-    }
-    "binary" => {
-      ls ($file | path relative-to (pwd)) | print
-    }
-    _ => {
-      let pstart = [($jump_to_line - 10) 1] | math max
-      let pend = $pstart + $env.FZF_PREVIEW_LINES
-
-      if (which "bat" | is-not-empty) and (which "less" | is-not-empty) {
-        if ($env.FZF_LINES? | default "") != "" {
-          log debug $"Running bat in fzf mode, line-range: ($pstart):($pend)"
-          ^bat --style $"($env.FZF_BAT_STYLE)" --color $"($env.FZF_BAT_COLOR)" --pager "never" --line-range $"($pstart):($pend)" --highlight-line $jump_to_line -- $file
-        } else {
-          let pager = $'less +G($pstart) -RFK'
-          log debug $"Running bat in Less mode, pager: ($pager)"
-          ^bat --pager $pager --highlight-line $jump_to_line -- $file
-        }
-      } else if (which "sed" | is-not-empty) {
-        ^sed --quiet $"($pstart),($pend)p" $file
-      } else {
-        ^cat $file
-      }
-    }
-  }
+  $file | run-renderers $renderers $config $term $jump_to_line
 }
 
 def find-file [
@@ -153,6 +320,7 @@ def find-file [
   $found | first | first
 }
 
+
 # Renders a file from a directory or directly a file.
 # It is able to render images and highlights text with bat in your terminal.
 #
@@ -176,34 +344,20 @@ def find-file [
 # the script.
 def main [
   path: path # Input either a single directory or file.
-  --no-find (-f) # Disable globing for directories, usefull if you just wanna list files.
-  --patterns: list<oneof<string, glob>> # Find patterns for directories, (ENV: SHOW_FIND_PATTERNS)
-  --excludes: list<string> # Find excludes for directories (ENV: SHOW_FIND_EXCLUDES)
+  --glob (-g) # Enable globing for directories, usefull inside fzf with directories as input.
+  --patterns: list<oneof<string, glob>> # Find patterns for globing, (ENV: SHOW_FIND_PATTERNS)
+  --excludes: list<string> # Find excludes for globing (ENV: SHOW_FIND_EXCLUDES)
   --jump-to-line (-j): string = "0" # Jump to line x
   --debug (-d) # Enable debug logging
-]: nothing -> any {
+]: nothing -> binary {
   if $debug {
     log set-level (log log-level).DEBUG
   }
 
-  let find_patterns = (
-    $patterns | default $env.SHOW_FIND_PATTERNS? | default (
-      [
-        "(?i)readme*"
-        "(?i)*.md"
-        "(?i)*.rst"
-        "(?i)*.toml"
-      ]
-    )
-  )
-
-  let find_excludes = (
-    $excludes | default $env.SHOW_FIND_EXCLUDES? | default
-    [
-      "**/target/**"
-      "**/.git/**"
-    ]
-  )
+  let config = get-config
+ 
+  let find_patterns = $patterns | default $env.SHOW_FIND_PATTERNS? | default $config.commands.main.patterns
+  let find_excludes = $excludes | default $env.SHOW_FIND_EXCLUDES? | default $config.commands.main.excludes
 
   if not ($path | path exists) {
     error make {msg: $"Path '($path)' not found"}
@@ -216,32 +370,38 @@ def main [
     0
   })
 
-  let m_path = $path | path expand
-  log debug $"Checking '($path)', type '($path | path type)', expanded: '($m_path)', expanded type: '($m_path | path type)'"
-  match ($m_path | path type) {
-    "file" => {
-      try {
-        $path | show-file --jump-to-line $m_jump
-      } catch {|err|
-        $path | fallback-ls $"error in show-file, msg: ($err.msg)"
+
+  log debug $"Checking '($path)', type '($path | path type)'"
+
+  let c = {||
+    let file = (match ($path | path expand | path type) {
+      "file" => {
+        $path
       }
-    }
-    "dir" => {
-      if ($no_find) {
-        ls $path | print
-      } else {
-        try {
-          $path | find-file $find_patterns $find_excludes | show-file --jump-to-line $m_jump
-        } catch {|err|
-          $path | fallback-ls $"error in find-file/show-file, msg: ($err.msg)"
+      "dir" => {
+        if not ($glob) {
+          ls $path | print
+          exit 0
         }
+        $path | find-file $find_patterns $find_excludes
       }
-    }
-    _ => {
-      $path | fallback-ls "not a file/dir"
+    })
+
+    $file | show-file $config $m_jump
+  }
+
+  # no fallback in debug (wanna see the error)
+  if $debug {
+    do -c $c
+  } else {
+    try {
+      do -c $c
+    } catch {|err|
+      $path | fallback-ls $err.msg 
     }
   }
 }
+
 
 # Search with `rg` <> `fzf` | open.
 #
@@ -287,16 +447,13 @@ def "main search" [
     log set-level (log log-level).DEBUG
   }
 
-  configure
+  # load env / config
+  let $config = get-config
 
-  let m_opener = ($opener | default $env.SHOW_SEARCH_OPENER? | default "nvim")
+  let m_opener = $opener | default $env.SHOW_SEARCH_OPENER? | default $config.commands.search.opener
 
   # Openers that support the "file:line" syntax
-  let line_openers = $env.SHOW_SEARCH_LINE_OPENERS? | default (
-      [
-        "helix"
-      ]
-    )
+  let line_openers = $env.SHOW_SEARCH_LINE_OPENERS? | default $config.commands.search.line_openers
 
   log debug $"Opener is: ($m_opener)"
 
@@ -325,7 +482,7 @@ def "main search" [
 
   let reload = $"rg ($rg_args | each {|arg| $"'($arg)'"} | str join ' ') {q}"
 
-  let preview = $'($env.CURRENT_FILE) -j {2} {1}'
+  let preview = $'($env.CURRENT_FILE) -g -j {2} {1}'
 
   mut fzf_args = [
     "--bind" 'ctrl-a:select-all,ctrl-d:deselect-all,ctrl-/:toggle-preview'
@@ -352,16 +509,16 @@ def "main search" [
       ...$fzf_args
     ]
   }
-  log debug $"rg cmdline: ^rg ($rg_args | each {|arg| $"'($arg)'"} | str join ' ') '($query)'"
-  log debug $"fzf cmdline: ^fzf ($fzf_args | each {|arg| $"'($arg)'"} | str join ' ')"
+  log debug $"rg cmdline: rg ($rg_args | each {|arg| $"'($arg)'"} | str join ' ') '($query)'"
+  log debug $"fzf cmdline: fzf ($fzf_args | each {|arg| $"'($arg)'"} | str join ' ')"
 
   if ($working_directory | is-not-empty) {
     cd --physical $working_directory
   }
 
   # The actual call
-  let results = ^rg ...($rg_args) $query
-      | ^fzf ...($fzf_args)
+  let results = rg ...($rg_args) $query
+      | fzf ...($fzf_args)
       | lines | each {|line| $line | split row ':' }
 
   # Convert into file list either "<file>:<line>" or "<file>"

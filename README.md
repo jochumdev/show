@@ -24,7 +24,7 @@ It can:
 
 - **kitty**
 - **alacrity**
-- **ghosty**
+- **ghostty**
 
 Nushell does **not** need to be your active shell for `show` to work — though I highly recommend trying it.
 
@@ -44,9 +44,9 @@ Nushell does **not** need to be your active shell for `show` to work — though 
 
 Using Nushell:
 
-```nushell
+```nu
 http get --raw https://git.sr.ht/~jochumdev/show/blob/main/show | save --raw ~/.local/bin/show
-^chmod +x ~/.local/bin/show
+chmod +x ~/.local/bin/show
 ````
 
 Ensure `~/.local/bin` is in your `$PATH`.
@@ -57,24 +57,24 @@ Ensure `~/.local/bin` is in your `$PATH`.
 
 From the `bat` man page:
 
-```nushell
-mkdir -p (^bat --config-dir)/syntaxes
-cd (^bat --config-dir)/syntaxes
+```nu
+mkdir -p (bat --config-dir)/syntaxes
+cd (bat --config-dir)/syntaxes
 
 # Add new .sublime-syntax files, for example:
-^git clone https://github.com/tellnobody1/sublime-purescript-syntax
+git clone https://github.com/tellnobody1/sublime-purescript-syntax
 
 # Rebuild bat's cache
-^bat cache --build
+bat cache --build
 ```
 
 #### Nushell syntax for `bat`
 
-```nushell
+```nu
 http get --raw https://raw.githubusercontent.com/kurokirasama/nushell_sublime_syntax/refs/heads/main/nushell.sublime-syntax \
-  | save --raw -f f"(^bat --config-dir)/syntaxes/nushell.sublime-syntax"
+  | save --raw -f f"(bat --config-dir)/syntaxes/nushell.sublime-syntax"
 
-^bat cache --build
+bat cache --build
 ```
 
 ---
@@ -83,7 +83,7 @@ http get --raw https://raw.githubusercontent.com/kurokirasama/nushell_sublime_sy
 
 You can configure `show` as the preview command for fzf:
 
-```nushell
+```nu
 $env.FZF_DEFAULT_OPTS = r#'--preview="show -j ' {2} ' {1}" --delimiter=":"'#
 $env.FZF_CTRL_T_OPTS = r#'--preview="show -j ' {2} ' {1}"'#
 ```
@@ -106,7 +106,12 @@ Renders files or directories in the terminal.
 
 * **Directory input**
 
-  * Searches for known files (configurable via env vars or flags)
+  * with `--glob`
+    Searches for known files (configurable via env vars or flags)
+
+  * else
+    Runs ls on the directory
+
 * **File input**
 
   * **Images**
@@ -120,7 +125,92 @@ Renders files or directories in the terminal.
 
     * Rendered using bat or cat
 
-For environment variables, see the first lines of the script.
+### Configuration
+
+show is highly configurable, it allows you to route different mime types to different "renderers".
+
+You can group mime types by `mimegroups`, the order matters, first-in-first-out applies here.
+
+The config can be loaded from either:
+
+- `$env.XDG_CONFIG_HOME/show/config.toml`
+- `$env.XDG_CONFIG_HOME/show/config.json`
+
+Your config will be merged with the default config when it exists
+using `merge deep --strategy=prepend` means your mimegroups come first.
+
+For now you can't add additional renderers without changing show itself.
+
+This is the default config:
+
+```toml
+[[mimegroups]]
+# Render this mimes with the renderers below.
+mimes = [
+    "application/x-nuscript",
+    "application/x-nuon",
+    "text/x-nushell",
+    "application/json",
+]
+renderers = [
+    "nu-highlight",
+    "bat",
+    "cat",
+]
+
+[[mimegroups]]
+mimes = [
+    "application",
+    "text",
+]
+renderers = [
+    "bat",
+    "sed",
+    "cat",
+]
+
+[[mimegroups]]
+mimes = ["image"]
+renderers = [
+    "kitten_icat",
+    "imgcat",
+    "chafa",
+    "sed",
+]
+
+[commands.main]
+# Glob patterns for directories.
+patterns = [
+    "(?i)readme*",
+    "(?i)*.md",
+    "(?i)*.rst",
+    "(?i)*.toml",
+]
+# Exclude this patterns when globbing for the above files.
+excludes = [
+    "**/target/**",
+    "**/.git/**",
+]
+
+[commands.search]
+# Open found files with
+opener = "nvim"
+
+# Openers which suppport the "<file>:<line>" syntax
+line_openers = ["helix"]
+
+[renderers.kitten_icat]
+# Terminals taht work with `kitten icat`
+terms = [
+    "kitty",
+    "ghostty",
+]
+
+[renderers.bat]
+# Bat style/color used within fzf.
+fzf_style = "full"
+fzf_color = "always"
+```
 
 ### Usage
 
@@ -135,10 +225,10 @@ show {flags} <path>
 ### Flags
 
 * `-h, --help` — Show help
-* `-f, --no-find` — Disable directory globbing
-* `--patterns <list>` — Find patterns for directories
+* `-g, --glob` — Enable globbing for directories
+* `--patterns <list>` — Find patterns for directory globbing
   (env: `SHOW_FIND_PATTERNS`)
-* `--excludes <list>` — Find excludes for directories
+* `--excludes <list>` — Find excludes for directory globbing
   (env: `SHOW_FIND_EXCLUDES`)
 * `-j, --jump-to-line <string>` — Jump to line (default: `0`)
 * `-d, --debug` — Enable debug logging
@@ -153,7 +243,7 @@ show {flags} <path>
 
 #### Image rendering (optional, resolved in order)
 
-* kitty / ghosty: `kitten` + `sed`
+* kitty / ghostty: `kitten` + `sed`
 * otherwise: `imgcat`
 * fallback: `chafa`
 
@@ -175,19 +265,19 @@ Search with rg <> fzf then open the found files in your editor.
 
 Walk files and let fzf handle fuzzy matching:
 
-```
+```nu
 show search -g '**/*.nu'
 ```
 
 Search in a different directory:
 
-```
+```nu
 show search -d ~/vendor/nushell/nu_scripts -g '**/*.nu'
 ```
 
 Search for a string in all `.nu` files:
 
-```
+```nu
 show search -g '**/*.nu' 'run-external'
 ```
 
@@ -199,13 +289,13 @@ show search -g '**/*.nu' -m '# Update.*\n.*def --env'
 
 Use fixed strings (useful for regex-like text):
 
-```
+```nu
 show search -F 'hello.*'
 ```
 
 Enable auto-reload (rg runs on each query change):
 
-```
+```nu
 show search -F -a initial
 ```
 
@@ -215,7 +305,7 @@ show search -F -a initial
 
 ### Usage
 
-```
+```nu
 show search {flags} (query)
 ```
 
@@ -247,7 +337,7 @@ show search {flags} (query)
 
 ### Convenience alias
 
-```nushell
+```nu
 alias search = show search
 ```
 
