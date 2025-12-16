@@ -212,6 +212,18 @@ fzf_style = "full"
 fzf_color = "always"
 ```
 
+This is my config:
+
+```toml
+[[mimegroups]]
+mimes = ["text/x-script.python"]
+renderers = [
+    "nu-highlight",
+    "bat",
+    "cat",
+]
+```
+
 ### Usage
 
 ```

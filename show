@@ -11,7 +11,7 @@ let renderers = {
   "kitten_icat": {
     "required_cmds": ["kitten" "sed"]
     "check_terminals": true
-    "formatter": {|config, term, jump_to|
+    "renderer": {|config, term, jump_to|
       let term_size = (term size)
       let c = ($env.FZF_PREVIEW_COLUMNS? | default $term_size.columns | into int)
       let l = ($env.FZF_PREVIEW_LINES? | default $term_size.rows | into int)
@@ -29,7 +29,7 @@ let renderers = {
   }
   "imgcat": {
     "required_cmds": ["imgcat"]
-    "formatter": {|config, term, jump_to|
+    "renderer": {|config, term, jump_to|
       let term_size = (term size)
       let c = ($env.FZF_PREVIEW_COLUMNS? | default $term_size.columns | into int)
       let l = ($env.FZF_PREVIEW_LINES? | default $term_size.rows | into int)
@@ -45,7 +45,7 @@ let renderers = {
   }
   "chafa": {
     "required_cmds": ["chafa"]
-    "formatter": {|config, term, jump_to|
+    "renderer": {|config, term, jump_to|
       let term_size = (term size)
       let c = ($env.FZF_PREVIEW_COLUMNS? | default $term_size.columns | into int)
       let l = ($env.FZF_PREVIEW_LINES? | default $term_size.rows | into int)
@@ -65,7 +65,7 @@ let renderers = {
   }
   "sed": {
     "required_cmds": ["sed"]
-    "formatter": {|config, term, jump_to|
+    "renderer": {|config, term, jump_to|
       if ($jump_to != 0) {
         let pstart = [($jump_to - 10) 1] | math max
         let pend = $pstart + $env.FZF_PREVIEW_LINES
@@ -77,7 +77,7 @@ let renderers = {
   }
   "bat": {
     "required_cmds": ["bat", "less"]
-    "formatter": {|config, term, jump_to|
+    "renderer": {|config, term, jump_to|
       let $file = $in
 
       let term_size = (term size)
@@ -97,13 +97,13 @@ let renderers = {
   }
   "cat": {
     "required_cmds": ["cat"]
-    "formatter": {|config, term, jump_to|
+    "renderer": {|config, term, jump_to|
       cat $in
     }
   }
   "nu-highlight": {
     "required_cmds": ["nu-highlight"]
-    "formatter": {|config, term, jump_to|
+    "renderer": {|config, term, jump_to|
       open --raw $in | nu-highlight | print
     }
   }
@@ -139,7 +139,7 @@ def get-config [
         ]
       }
     }
-    # Mime to formatter map. The order matters!
+    # Mime to renderer map. The order matters!
     "mimegroups": [
       {
         "mimes": ["application/x-nuscript", "application/x-nuon", "text/x-nushell", "application/json"]
@@ -244,8 +244,8 @@ def run-renderers [
       continue
     }
 
-    log debug $"Running formatter '($x)'"
-    $file | do -c $fmt.formatter $config $term $jump_to_line
+    log debug $"Running renderer '($x)'"
+    $file | do -c $fmt.renderer $config $term $jump_to_line
     break
   }
 
