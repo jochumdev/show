@@ -136,6 +136,7 @@ def get-config [
         "opener": "nvim"
         "line_openers": [
           "helix"
+          "hx"
         ]
       }
     }
@@ -143,7 +144,7 @@ def get-config [
     "mimegroups": [
       {
         "mimes": ["application/x-nuscript", "application/x-nuon", "text/x-nushell", "application/json"]
-        "renderers": ["nu-highlight", "bat", "cat"]
+        "renderers": ["nu-highlight", "bat", "sed", "cat"]
       }
       {
         "mimes": ["application", "text"]
@@ -151,7 +152,7 @@ def get-config [
       }
       {
         "mimes": ["image"]
-        "renderers": ["kitten_icat", "imgcat", "chafa", "sed"]
+        "renderers": ["kitten_icat", "imgcat", "chafa"]
       }
     ]
     "renderers": {
@@ -497,14 +498,14 @@ def "main search" [
 
   if $auto_reload {
     $fzf_args = [
-      "--header" 'CTRL-A to select all, CTRL-D to deselect and CTRL-/ to toggle the preview'
+      "--header" 'CTRL-A to select all, CTRL-D to deselect all and CTRL-/ to toggle the preview'
       "--bind" $"change:reload:($reload)"
       "--query" $"($query)"
       ...$fzf_args
     ]
   } else {
     $fzf_args = [
-      "--header" 'Press CTRL-R to run the query again, CTRL-A to select all, CTRL-D to deselect and CTRL-/ to toggle the preview'
+      "--header" 'Press CTRL-R to run the query again, CTRL-A to select all, CTRL-D to deselect all and CTRL-/ to toggle the preview'
       "--bind" $"ctrl-r:reload:($reload)"
       ...$fzf_args
     ]

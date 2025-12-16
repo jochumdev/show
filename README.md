@@ -197,10 +197,10 @@ excludes = [
 opener = "nvim"
 
 # Openers which suppport the "<file>:<line>" syntax
-line_openers = ["helix"]
+line_openers = ["helix", "hx"]
 
 [renderers.kitten_icat]
-# Terminals taht work with `kitten icat`
+# Terminals that work with `kitten icat`
 terms = [
     "kitty",
     "ghostty",
@@ -222,6 +222,9 @@ renderers = [
     "bat",
     "cat",
 ]
+
+[commands.search]
+opener = "hx"
 ```
 
 ### Usage
@@ -336,6 +339,13 @@ show search {flags} (query)
 ### Parameters
 
 * `query <string>` — Initial search query (optional)
+
+### fzf TUI key bindings
+
+* `CTRL-R`: to run the query again when not running with `--auto-reload`
+* `CTRL-A`: to select all
+* `CTRL-D`: to deselect all
+* `CTRL-/`:` to toggle the preview'
 
 ---
 
