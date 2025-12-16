@@ -365,12 +365,6 @@ alias search = show search
 
 ---
 
-## `show update`
-
-Updates `show` from the latest `main` branch.
-
----
-
 ## History
 
 `show` started as a port of
