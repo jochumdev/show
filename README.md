@@ -1,389 +1,237 @@
-# show — a terminal viewer and search wrapper
+# show
 
-**show** is a [Nushell](https://www.nushell.sh/) script that wraps several excellent tools-
+A pragmatic terminal file viewer and search helper.
 
-- [bat](https://github.com/sharkdp/bat)
-- [kitten icat](https://sw.kovidgoyal.net/kitty/kittens/icat/)
-- [chafa](https://github.com/hpjansson/chafa/)
-- [ripgrep](https://github.com/BurntSushi/ripgrep)
-- [fzf](https://github.com/junegunn/fzf)
+`show` is implemented in Nushell and designed to be used from a modern shell environment.
 
--to make working with text, images, and search results in the terminal more pleasant and powerful.
+It renders files intelligently in your terminal and acts as a reliable
+preview command for `fzf`. It selects the best available renderer based on
+mime detection, terminal capabilities, and installed tools — with safe fallbacks.
 
-It can:
-
-- Render **text and images** directly in your terminal
-- Act as a **drop-in preview command for fzf**
-- Combine **ripgrep + fzf + show** into a fast interactive search UI
+This is not a pager replacement and not a file manager.  
+It is glue that makes existing CLI tools work together predictably.
 
 ---
 
-## Terminal support
+## Why
 
-`show` is well tested with:
+Most `fzf` preview setups start simple and slowly turn into fragile shell
+scripts:
 
-- **kitty**
-- **alacrity**
-- **ghostty**
+- hard-coded tool checks
+- terminal-specific hacks
+- broken scrolling with image previews
+- Duplicated logic between preview and search
 
-Nushell does **not** need to be your active shell for `show` to work — though I highly recommend trying it.
+`show` centralizes this logic.
 
----
-
-## Demos
-
-[![2025-12-15-show-search](https://asciinema.org/a/762163.svg)](https://asciinema.org/a/762163)
-
-[2025-12-15-show-as-fzf-preview.webm](https://github.com/user-attachments/assets/5bc0018d-03d8-4532-9281-0ec335381ee2)
+It detects file types, selects an appropriate renderer, and falls back
+gracefully when something is unsupported. The same rendering logic is used
+for previewing files, browsing directories, and searching with ripgrep.
 
 ---
 
-## Installation
+## How it works
 
-### Install `show`
+`show` uses a simple renderer pipeline:
 
-Using Nushell:
+```
+
+File
+↓
+MIME detection
+↓
+renderer list
+↓
+first compatible renderer
+↓
+output
+
+```
+
+For each file:
+
+1. The MIME type is detected (using `file` if available)
+2. Matching renderer groups are looked up
+3. Renderers are tried in order
+4. The first renderer that:
+   - is available
+   - supports the current terminal
+   - has all required commands installed  
+   is used
+
+If no renderer matches, `show` falls back safely.
+This usually means printing the filepath or listing directory contents,
+depending on the input type.
+
+### Example
+
+A `text/plain` file may be rendered by:
+
+- `bat`
+- `sed`
+- `cat`
+
+If `bat` is installed, it is used.  
+If not, `sed` is tried.  
+If that fails, `cat` is used.
+
+---
+
+### fzf integration (POSIX shells)
+
+
+For `/bin/sh`, `bash`, `zsh`:
+
+```sh
+export FZF_DEFAULT_OPTS='--preview="show --glob --jump-to-line '\'' {2} '\'' {1}" --delimiter=":"'
+```
+
+Same with nu
 
 ```nu
-http get --raw https://git.sr.ht/~jochumdev/show/blob/main/show | save --raw ~/.local/bin/show
-chmod +x ~/.local/bin/show
-````
+$env.FZF_DEFAULT_OPTS = r#'--preview="show --glob --jump-to-line ' {2} ' {1}" --delimiter=":"'#
+```
 
-Ensure `~/.local/bin` is in your `$PATH`.
+The spaces around `{2}` are intentional.
+They avoid a known fzf issue where empty fields are replaced with nothing,
+which can break argument boundaries.
+
+## Usage
+
+Preview a file:
+
+```sh
+show file.txt
+```
+
+Preview a directory (searches for common files like `README`, configurable):
+
+```sh
+show -g .
+```
+
+Use as an `fzf` preview command:
+
+```sh
+fzf --preview 'show {}'
+```
+
+Jump to a specific line (used automatically by `show search`):
+
+```sh
+show -j 120 file.txt
+```
+
+Enable debug logging:
+
+```sh
+show --debug file.txt
+```
 
 ---
 
-### (Optional) Add extra syntax highlighting for `bat`
+## Search
 
-From the `bat` man page:
+`show search` combines `ripgrep` and `fzf` and reuses the same preview logic.
 
-```nu
-mkdir -p (bat --config-dir)/syntaxes
-cd (bat --config-dir)/syntaxes
-
-# Add new .sublime-syntax files, for example:
-git clone https://github.com/tellnobody1/sublime-purescript-syntax
-
-# Rebuild bat's cache
-bat cache --build
+```sh
+show search -F 'open --raw'
 ```
 
-#### Nushell syntax for `bat`
+Search only certain files:
 
-```nu
-http get --raw https://raw.githubusercontent.com/kurokirasama/nushell_sublime_syntax/refs/heads/main/nushell.sublime-syntax \
-  | save --raw -f f"(bat --config-dir)/syntaxes/nushell.sublime-syntax"
-
-bat cache --build
-```
-
----
-
-## Using `show` with fzf
-
-You can configure `show` as the preview command for fzf:
-
-```nu
-$env.FZF_DEFAULT_OPTS = r#'--preview="show -j ' {2} ' {1}" --delimiter=":"'#
-$env.FZF_CTRL_T_OPTS = r#'--preview="show -j ' {2} ' {1}"'#
-```
-
-I’m also using this fzf PR for better completions:
-[https://github.com/junegunn/fzf/pull/4630](https://github.com/junegunn/fzf/pull/4630)
-
----
-
-## `show` — terminal viewer for text and images
-
-Renders files or directories in the terminal.
-
-- Text files are highlighted using bat (or cat as fallback)
-- Images are rendered inline when supported
-- Binary files are shown as their path
-- Directories are searched for "known" files
-
-### Behavior
-
-* **Directory input**
-
-  * with `--glob`
-    Searches for known files (configurable via env vars or flags)
-
-  * else
-    Runs ls on the directory
-
-* **File input**
-
-  * **Images**
-
-    * Rendered inline in kitty and ghostty
-    * SIXEL used when supported
-  * **Binary files**
-
-    * Path is displayed
-  * **Other files**
-
-    * Rendered using bat or cat
-
-### Configuration
-
-show is highly configurable, it allows you to route different mime types to different "renderers".
-
-You can group mime types by `mimegroups`, the order matters, first-in-first-out applies here.
-
-The config can be loaded from either:
-
-- `$env.XDG_CONFIG_HOME/show/config.toml`
-- `$env.XDG_CONFIG_HOME/show/config.json`
-
-Your config will be merged with the default config when it exists
-using `merge deep --strategy=prepend` means your mimegroups come first.
-
-For now you can't add additional renderers without changing show itself.
-
-This is the default config:
-
-```toml
-[[mimegroups]]
-# Render this mimes with the renderers below.
-mimes = [
-    "application/x-nuscript",
-    "application/x-nuon",
-    "text/x-nushell",
-    "application/json",
-]
-renderers = [
-    "nu-highlight",
-    "bat",
-    "cat",
-]
-
-[[mimegroups]]
-mimes = [
-    "application",
-    "text",
-]
-renderers = [
-    "bat",
-    "sed",
-    "cat",
-]
-
-[[mimegroups]]
-mimes = ["image"]
-renderers = [
-    "kitten_icat",
-    "imgcat",
-    "chafa",
-    "sed",
-]
-
-[commands.main]
-# Glob patterns for directories.
-patterns = [
-    "(?i)readme*",
-    "(?i)*.md",
-    "(?i)*.rst",
-    "(?i)*.toml",
-]
-# Exclude this patterns when globbing for the above files.
-excludes = [
-    "**/target/**",
-    "**/.git/**",
-]
-
-[commands.search]
-# Open found files with
-opener = "nvim"
-
-# Openers which suppport the "<file>:<line>" syntax
-line_openers = ["helix", "hx"]
-
-[renderers.kitten_icat]
-# Terminals that work with `kitten icat`
-terms = [
-    "kitty",
-    "ghostty",
-]
-
-[renderers.bat]
-# Bat style/color used within fzf.
-fzf_style = "full"
-fzf_color = "always"
-```
-
-This is my config:
-
-```toml
-[[mimegroups]]
-mimes = ["text/x-script.python"]
-renderers = [
-    "nu-highlight",
-    "bat",
-    "cat",
-]
-
-[commands.search]
-opener = "hx"
-```
-
-### Usage
-
-```
-show {flags} <path>
-```
-
-### Subcommands
-
-* `show search` — interactive ripgrep + fzf search with preview
-
-### Flags
-
-* `-h, --help` — Show help
-* `-g, --glob` — Enable globbing for directories
-* `--patterns <list>` — Find patterns for directory globbing
-  (env: `SHOW_FIND_PATTERNS`)
-* `--excludes <list>` — Find excludes for directory globbing
-  (env: `SHOW_FIND_EXCLUDES`)
-* `-j, --jump-to-line <string>` — Jump to line (default: `0`)
-* `-d, --debug` — Enable debug logging
-
-### Parameters
-
-* `path <path>` — A file or directory to render
-
----
-
-# Dependencies
-
-#### Image rendering (optional, resolved in order)
-
-* kitty / ghostty: `kitten` + `sed`
-* otherwise: `imgcat`
-* fallback: `chafa`
-
-#### Text rendering (optional)
-
-* `bat`
-* `sed`
-* `cat`
-
-If nothing is available, `ls` is used as a last resort.
-
----
-
-## `show search` — ripgrep + fzf integration
-
-Search with rg <> fzf then open the found files in your editor.
-
-### Examples
-
-Walk files and let fzf handle fuzzy matching:
-
-```nu
+```sh
 show search -g '**/*.nu'
 ```
 
-Search in a different directory:
+Search in another directory without having to cd to it:
 
-```nu
-show search -d ~/vendor/nushell/nu_scripts -g '**/*.nu'
+```sh
+show search -d ~/projects/show/testbed 'success'
 ```
 
-Search for a string in all `.nu` files:
+Enable auto-reload (rerun ripgrep on each query change):
 
-```nu
-show search -g '**/*.nu' 'run-external'
+```sh
+show search -g '**/*.nu' -a
 ```
 
-Multi-line search:
+Previews shown during search are rendered exactly like `show file`, including
+syntax highlighting and image support.
 
-```
-show search -g '**/*.nu' -m '# Update.*\n.*def --env'
-```
-
-Use fixed strings (useful for regex-like text):
-
-```nu
-show search -F 'hello.*'
-```
-
-Enable auto-reload (rg runs on each query change):
-
-```nu
-show search -F -a initial
-```
-
-**Tip**: If something behaves unexpectedly, re-run with `--debug` and close fzf to inspect the output.
+Selecting files in fzf results in an opened Editor at the given line if your Editor supports that.
 
 ---
 
-### Usage
+## Configuration
 
-```nu
-show search {flags} (query)
+Configuration is optional.
+
+By default, `show` works out of the box.
+It can be customized via:
+
+```
+$XDG_CONFIG_HOME/show/config.toml
 ```
 
-### Flags
+You can configure:
 
-* `-h, --help` — Show help
-* `-d, --working-directory <path>` — Directory to search in
-* `-o, --opener <string>` — Editor/opener
-  (default: `$env.SHOW_SEARCH_OPENER`, then `nvim`)
-* `-d, --debug` — Enable debug logging
-* `-a, --auto-reload` — Re-run rg on every query change
-* `-F, --fixed-strings` — Use fixed strings with ripgrep
-* `-g, --glob <string>` — File glob
-* `-m, --multi-line` — Enable multi-line search
+* Which files are searched when previewing directories
+* MIME type → renderer mappings
+* terminal-specific renderer restrictions
+* editor integration for `show search`
 
-### Parameters
+The configuration is merged on top of sane defaults.
 
-* `query <string>` — Initial search query (optional)
-
-### fzf TUI key bindings
-
-* `CTRL-R`: to run the query again when not running with `--auto-reload`
-* `CTRL-A`: to select all
-* `CTRL-D`: to deselect all
-* `CTRL-/`:` to toggle the preview'
+See `config.toml` and `config.example.toml` in the repository for all available options.
 
 ---
 
-### Dependencies
+## Image rendering
 
-* All dependencies of `show`
-* `rg`
-* `fzf`
+Image previews are supported when the terminal allows it.
 
----
+Supported renderers (used if available):
 
-### Convenience alias
+* `kitten icat` (kitty, ghostty)
+* `imgcat` (iTerm2)
+* `chafa` (sixel / ASCII fallback)
 
-```nu
-alias search = show search
-```
+If image rendering is not supported, `show` falls back to print the path.
 
 ---
 
-## History
+## Dependencies
 
-`show` started as a port of
-[fzf-preview.sh](https://github.com/junegunn/fzf/blob/33d8d51c8a6c6e9321b5295b3a63f548b5f18a1f/bin/fzf-preview.sh)
-to [show.sh](show.sh).
+Required:
 
-After discovering Nushell, I rewrote it in Nu and later deeply integrated
-`rg` and `fzf`, resulting in `show search`.
+* Nushell
 
-`show search` is inspired by:
-[https://junegunn.github.io/fzf/tips/ripgrep-integration/#wrap-up](https://junegunn.github.io/fzf/tips/ripgrep-integration/#wrap-up)
+Optional (used if available):
+
+* bat
+* ripgrep
+* fzf
+* chafa
+* kitty (`kitten icat`)
+* imgcat
+* sed
+* less
+
+Missing tools are handled gracefully.
 
 ---
 
-## Author
+## Non-goals
 
-* René Jochum
-* Based on work by [@junegunn](https://github.com/junegunn), author of fzf
-* This README has been optimized by ChatGPT, all code is hand written.
+* Replacing your pager
+* Acting as a file manager
+* Supporting every terminal image protocol
+
+`show` focuses on being a predictable preview and search helper that plays
+well with existing CLI tools.
+
 ---
 
 ## License

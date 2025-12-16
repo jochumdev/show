@@ -1,0 +1,10 @@
+[[mimegroups]]
+mimes = ["text/x-script.python"]
+renderers = [
+    "nu-highlight",
+    "bat",
+    "cat",
+]
+
+[commands.search]
+opener = "hx"

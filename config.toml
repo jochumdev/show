@@ -1,0 +1,66 @@
+[[mimegroups]]
+# Render this mimes with the renderers below.
+mimes = [
+    "application/x-nuscript",
+    "application/x-nuon",
+    "text/x-nushell",
+    "application/json",
+]
+renderers = [
+    "nu-highlight",
+    "bat",
+    "cat",
+]
+
+[[mimegroups]]
+mimes = [
+    "application",
+    "text",
+]
+renderers = [
+    "bat",
+    "sed",
+    "cat",
+]
+
+[[mimegroups]]
+mimes = ["image"]
+renderers = [
+    "kitten_icat",
+    "imgcat",
+    "chafa",
+    "sed",
+]
+
+[commands.main]
+# Glob patterns for directories.
+patterns = [
+    "(?i)readme*",
+    "(?i)*.md",
+    "(?i)*.rst",
+    "(?i)*.toml",
+]
+# Exclude this patterns when globbing for the above files.
+excludes = [
+    "**/target/**",
+    "**/.git/**",
+]
+
+[commands.search]
+# Open found files with
+opener = "nvim"
+
+# Openers which suppport the "<file>:<line>" syntax
+line_openers = ["helix", "hx"]
+
+[renderers.kitten_icat]
+# Terminals that work with `kitten icat`
+terms = [
+    "kitty",
+    "ghostty",
+]
+
+[renderers.bat]
+# Bat style/color used within fzf.
+fzf_style = "full"
+fzf_color = "always"
