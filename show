@@ -34,7 +34,7 @@ let renderers = {
       let c = ($env.FZF_PREVIEW_COLUMNS? | default $term_size.columns | into int)
       let l = ($env.FZF_PREVIEW_LINES? | default $term_size.rows | into int)
     
-      # TODO(jochumdev): this iscomplelty untested.
+      # TODO(jochumdev): this is completly untested.
       #
       # This comment is from `fzf-preview.sh`
       # NOTE: We should use https://iterm2.com/utilities/it2check to check if the
@@ -195,11 +195,7 @@ def get-config [
 # returns true if so else false
 def check-cmds [
 ]: list<string> -> bool {
-  return ($in | each {|cmd|
-    which $cmd | is-not-empty
-  } | reduce --fold true {|it, res|
-    $it == true and $res == true
-  })
+  $in | all {|cmd| which $cmd | is-not-empty }
 }
 
 def fallback-ls [
@@ -247,9 +243,10 @@ def run-renderers [
 
     log debug $"Running renderer '($x)'"
     $file | do -c $fmt.renderer $config $term $jump_to_line
-    break
+    return
   }
 
+  error make {msg: $"No renderer matched for '($file)'"}
   return null
 }
 
@@ -432,8 +429,8 @@ def main [
 #
 #    `show search -F -a initial`
 #
-# Tip: When it is not working right enable "--debug" after you close the fzf tui
-# you will see the output.
+# Tip: When it is not working right enable "--debug". After you close the fzf tui
+# with --debug enabled you will see the output.
 def "main search" [
   query: string = ""
   --working-directory (-d): path = "" # Directory to search and open in
@@ -483,7 +480,10 @@ def "main search" [
 
   let reload = $"rg ($rg_args | each {|arg| $"'($arg)'"} | str join ' ') {q}"
 
-  let preview = $'($env.CURRENT_FILE) -g -j {2} {1}'
+  # Use this script as previewer with globs enabled (for directories), jumps enabled
+  # Fzf replaces {2} with the line number
+  # and {1} with the file.
+  let preview = $"($env.CURRENT_FILE) -g -j ' {2} ' {1}"
 
   mut fzf_args = [
     "--bind" 'ctrl-a:select-all,ctrl-d:deselect-all,ctrl-/:toggle-preview'
