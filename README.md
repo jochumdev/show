@@ -13,21 +13,9 @@ It is glue that makes existing CLI tools work together predictably.
 
 ---
 
-## Why
+## Demo
 
-Most `fzf` preview setups start simple and slowly turn into fragile shell
-scripts:
-
-- hard-coded tool checks
-- terminal-specific hacks
-- broken scrolling with image previews
-- Duplicated logic between preview and search
-
-`show` centralizes this logic.
-
-It detects file types, selects an appropriate renderer, and falls back
-gracefully when something is unsupported. The same rendering logic is used
-for previewing files, browsing directories, and searching with ripgrep.
+[![asciicast](https://asciinema.org/a/762163.svg)](https://asciinema.org/a/762163)
 
 ---
 
@@ -233,6 +221,10 @@ Missing tools are handled gracefully.
 well with existing CLI tools.
 
 ---
+
+## Credits
+
+This is based on [fzf-preview.sh](https://github.com/junegunn/fzf/blob/33d8d51c8a6c6e9321b5295b3a63f548b5f18a1f/bin/fzf-preview.sh) as well as [a blog post](https://junegunn.github.io/fzf/tips/ripgrep-integration/) junegunn the author of fzf.
 
 ## License
 
