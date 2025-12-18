@@ -425,7 +425,7 @@ def main [
 #
 # Tip: When it is not working right enable "--debug". After you close the fzf tui
 # with --debug enabled you will see the output.
-def "main search" [
+def --env "main search" [
   query: string = ""
   --working-directory (-d): path = "" # Directory to search and open in
   --opener (-o): string # Editor/opener to use (default: $env.SHOW_SEARCH_OPENER then "nvim")

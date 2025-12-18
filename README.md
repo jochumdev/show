@@ -11,9 +11,6 @@ mime detection, terminal capabilities, and installed tools — with safe fallbac
 This is not a pager replacement and not a file manager.  
 It is glue that makes existing CLI tools work together predictably.
 
----
-
-## Demo
 
 [![asciicast](https://asciinema.org/a/762163.svg)](https://asciinema.org/a/762163)
 
@@ -211,20 +208,9 @@ Missing tools are handled gracefully.
 
 ---
 
-## Non-goals
-
-* Replacing your pager
-* Acting as a file manager
-* Supporting every terminal image protocol
-
-`show` focuses on being a predictable preview and search helper that plays
-well with existing CLI tools.
-
----
-
 ## Credits
 
-This is based on [fzf-preview.sh](https://github.com/junegunn/fzf/blob/33d8d51c8a6c6e9321b5295b3a63f548b5f18a1f/bin/fzf-preview.sh) as well as [a blog post](https://junegunn.github.io/fzf/tips/ripgrep-integration/) junegunn the author of fzf.
+This is based on [fzf-preview.sh](https://github.com/junegunn/fzf/blob/33d8d51c8a6c6e9321b5295b3a63f548b5f18a1f/bin/fzf-preview.sh) as well as a [blog post](https://junegunn.github.io/fzf/tips/ripgrep-integration/) by junegunn the author of fzf.
 
 ## License
 
